@@ -12,12 +12,11 @@
   <script  type="module" src="popup.js"></script>
   <h1>Video Summary Extension</h1>
   <input type="text" id="videoUrl" placeholder="Enter YouTube Video URL" value="https://www.youtube.com/watch?v=tWbNrm7Jo5c">
-  <audio controls id="audioPlayer">
+  <audio controls id="audioPlayer" style="display: none;">
     <source src="https://storage.googleapis.com/aai-web-samples/5_common_sports_injuries.mp3" type="audio/mp3">
     Your browser does not support the audio element.
   </audio>
 
-  <canvas id="videoCanvas" width="640" height="480" style="border:1px solid #000;"></canvas>
   <button id="getSummary">Get Summary</button>
   <div id="summary">Hello Testing</div>
 </body>

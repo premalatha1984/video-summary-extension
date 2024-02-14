@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', async function () {
+document.addEventListener('DOMContentLoaded', function () {
+
   const getSummaryButton = document.getElementById('getSummary');
   const videoUrlInput = document.getElementById('videoUrl');
   const summaryDiv = document.getElementById('summary');
@@ -6,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   getSummaryButton.addEventListener('click', function () {
     const videoUrl = videoUrlInput.value;
     if (videoUrl) {
-      console.log("Fetching video details..." + videoUrl);
+      alert("Fetching video details..." + videoUrl);
       getVideoDetails(videoUrl);
     } else {
       console.error("Error: videoUrl is empty or undefined.");
@@ -14,109 +15,132 @@ document.addEventListener('DOMContentLoaded', async function () {
   });
 
   chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-    console.log("Received message..." + request.action);
+    alert("Received message..." + request.action);
     if (request.action === 'displaySummary') {
-      console.log("Displaying summary..." + request.summary);
+      alert("Displaying summary..." + request.summary);
       summaryDiv.innerText = request.summary;
     }
   });
-  async function convertToVideo(summaryText, imageUrl) {
-    try {
-      const ffmpeg = createFFmpeg({ log: true });
-      console.log(typeof ffmpeg); // Should output "function" if createFFmpeg is defined
-      // Load FFmpeg
-      await ffmpeg.load();
+});
 
-      // Once FFmpeg is loaded, you can use the ffmpeg variable safely
-      const thumbnailBuffer = await fetch(imageUrl).then(response => response.arrayBuffer());
-      await ffmpeg.FS('writeFile', imageUrl, new Uint8Array(thumbnailBuffer));
-      const summary = summaryText;
-      console.log("Summary:", summary);
-      const audioBuffer = await generateAudio(summary);
-      await ffmpeg.FS('writeFile', 'audio.mp3', new Uint8Array(audioBuffer));
-
-      await ffmpeg.run('-i', imageUrl, '-i', 'audio.mp3', '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', 'output_video.mp4');
-
-      const outputVideoData = await ffmpeg.FS('readFile', 'output_video.mp4');
-      console.log("Output video data:", outputVideoData);
-      const outputVideoBlob = new Blob([outputVideoData.buffer], { type: 'video/mp4' });
-
-      const downloadLink = document.createElement('a');
-      downloadLink.href = URL.createObjectURL(outputVideoBlob);
-      downloadLink.download = 'output_video.mp4';
-      downloadLink.textContent = 'Download Video';
-
-      document.body.appendChild(downloadLink);
-    } catch (error) {
-      console.error("Error converting to video:", error);
-    }
-  }
-
-  async function getVideoDetails(videoUrl) {
-    const videoId = new URL(videoUrl).searchParams.get("v");
-    const apiKey = "AIzaSyDt-UtSEUbp4dMPntz13QWjtrY6-MLxAB4";
-    const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
-
-    try {
-      const response = await fetch(apiUrl);
+function getVideoDetails(videoUrl) {
+  const videoId = new URL(videoUrl).searchParams.get("v");
+  const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=AIzaSyA5TSeRxDdw8pLmEjHiDyCJP3jMN7li-Wg`;
+  fetch(apiUrl)
+    .then((response) => {
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
-      const data = await response.json();
-      if (data.items.length > 0) {
-        const videoTitle = data.items[0].snippet.title;
-        const summary = data.items[0].snippet.description;
-        const imageUrl = data.items[0].snippet.thumbnails.default.url;
-        console.log("Image URL:", imageUrl);
-        // console.log("Title:", videoTitle);
-        // console.log("Summary:", summary);
-        if (summary) {
-          convertToVideo(summary, imageUrl);
-        }
-        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-          const activeTab = tabs[0];
-          if (activeTab) {
-            chrome.tabs.sendMessage(activeTab.id, { action: 'displaySummary', summary });
-          } else {
-            console.error("Error: No active tab found.");
-          }
-        });
-      } else {
-        console.error('Video not found.');
+      return response.json();
+    })
+    .then((data) => {
+      const title = data.items[0].snippet.title;
+      const summary = data.items[0].snippet.description;
+      const imageurl = data.items[0].snippet.thumbnails.default.url;
+      console.log("imageurl"+imageurl)
+      alert("Title:" + title);
+      alert("Summary:" + summary);
+      const audioPlayer = document.getElementById('audioPlayer');
+      const updateAfterAudio = document.getElementById('updateAfterAudio');
+      
+      function updateHTML() {
+        // Code to update HTML after audio ends
+        updateAfterAudio.innerHTML = 'Audio Finished Playing!';
       }
-    } catch (error) {
-      console.error("Error fetching video details:", error);
-    }
-  }
+      
+      audioPlayer.addEventListener('ended', updateHTML);
+    
+      // Your existing code
+      if (summary) {
+
+        if ('speechSynthesis' in window) {
+          speakText(summary);
+        } else {
+          console.error('Speech synthesis not supported by the browser');
+        }
+        audioPlayer.style.display = 'block';
+        convertToVideo(summary, imageurl);
+      }
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        const activeTab = tabs[0];
+        if (activeTab) {
+          chrome.tabs.sendMessage(activeTab.id, { action: 'displaySummary', summary });
+        } else {
+          console.error("Error: No active tab found.");
+        }
+      });
+    })
+    .catch((error) => console.error("Error fetching video details:", error));
+}
+
+
+function speakText(text) {
+  var msg = new SpeechSynthesisUtterance();
+  msg.text = text;
+  window.speechSynthesis.speak(msg);
+}
 
 
 
-  async function generateAudio(text) {
-    return new Promise((resolve, reject) => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onend = () => {
-        const audioContext = new AudioContext();
-        const audioBuffer = audioContext.createBuffer(1, 1, audioContext.sampleRate);
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
+async function convertToVideo(summaryText,imageUrl) {
+  // Load the ffmpeg.wasm module
+  // await FFmpeg.load();
 
-        source.connect(audioContext.destination);
-        source.onended = () => {
-          const arrayBuffer = audioBuffer.getChannelData(0).buffer;
-          const uint8Array = new Uint8Array(arrayBuffer);
-          resolve(uint8Array);
-        };
+  // Create an FFmpeg instance
+  const ffmpeg = FFmpeg.createFFmpeg({ log: true });
 
-        source.start();
+  // Read the thumbnail image
+  const thumbnailBuffer = await fetch(imageUrl).then(response => response.arrayBuffer());
+  await ffmpeg.FS('writeFile', imageUrl, new Uint8Array(thumbnailBuffer));
+
+  // Generate audio using text-to-speech (replace with your own TTS logic)
+  const summary = summaryText;
+  const audioBuffer = await generateAudio(summary);
+  await ffmpeg.FS('writeFile', 'audio.mp3', new Uint8Array(audioBuffer));
+
+  // Run FFmpeg commands to combine thumbnail and audio into a video
+  await ffmpeg.run('-i', imageUrl, '-i', 'audio.mp3', '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', 'output_video.mp4');
+
+  // Retrieve the output video data
+  const outputVideoData = await ffmpeg.FS('readFile', 'output_video.mp4');
+
+  // Convert the Uint8Array to a Blob
+  const outputVideoBlob = new Blob([outputVideoData.buffer], { type: 'video/mp4' });
+
+  // Create a download link for the output video
+  const downloadLink = document.createElement('a');
+  downloadLink.href = URL.createObjectURL(outputVideoBlob);
+  downloadLink.download = 'output_video.mp4';
+  downloadLink.textContent = 'Download Video';
+  console.log("downloadLink"+downloadLink)
+  // Append the download link to the body
+  document.body.appendChild(downloadLink);
+}
+
+async function generateAudio(text) {
+  // Create a SpeechSynthesisUtterance object
+  const utterance = new SpeechSynthesisUtterance(text);
+
+  // Use the SpeechSynthesis API to convert text to speech
+  return new Promise((resolve) => {
+    utterance.onend = () => {
+      const audioContext = new AudioContext();
+      const audioBuffer = audioContext.createBuffer(1, 1, audioContext.sampleRate);
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+
+      source.connect(audioContext.destination);
+      source.onended = () => {
+        // Convert the audio data to Uint8Array
+        const arrayBuffer = audioBuffer.getChannelData(0).buffer;
+        const uint8Array = new Uint8Array(arrayBuffer);
+        resolve(uint8Array);
       };
 
-      utterance.onerror = (error) => {
-        reject(error);
-      };
+      // Start playing the synthesized speech
+      source.start();
+    };
 
-      speechSynthesis.speak(utterance);
-    });
-  }
-
-});
-
+    speechSynthesis.speak(utterance);
+  });
+}
