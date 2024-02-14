@@ -37,19 +37,19 @@ function getVideoDetails(videoUrl) {
       const title = data.items[0].snippet.title;
       const summary = data.items[0].snippet.description;
       const imageurl = data.items[0].snippet.thumbnails.default.url;
-      console.log("imageurl"+imageurl)
+      console.log("imageurl" + imageurl)
       alert("Title:" + title);
       alert("Summary:" + summary);
       const audioPlayer = document.getElementById('audioPlayer');
       const updateAfterAudio = document.getElementById('updateAfterAudio');
-      
+
       function updateHTML() {
         // Code to update HTML after audio ends
         updateAfterAudio.innerHTML = 'Audio Finished Playing!';
       }
-      
+
       audioPlayer.addEventListener('ended', updateHTML);
-    
+
       // Your existing code
       if (summary) {
 
@@ -59,6 +59,16 @@ function getVideoDetails(videoUrl) {
           console.error('Speech synthesis not supported by the browser');
         }
         audioPlayer.style.display = 'block';
+        var img = document.createElement('img');
+
+        // Set the src attribute of the image element
+        img.setAttribute('src', imageurl);
+
+        // Get the container element where you want to append the image
+        var container = document.getElementById('summary'); // Replace 'containerId' with the actual ID of your container element
+
+        // Append the image element to the container
+        container.appendChild(img);
         convertToVideo(summary, imageurl);
       }
       chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
@@ -82,7 +92,7 @@ function speakText(text) {
 
 
 
-async function convertToVideo(summaryText,imageUrl) {
+async function convertToVideo(summaryText, imageUrl) {
   // Load the ffmpeg.wasm module
   // await FFmpeg.load();
 
@@ -112,7 +122,7 @@ async function convertToVideo(summaryText,imageUrl) {
   downloadLink.href = URL.createObjectURL(outputVideoBlob);
   downloadLink.download = 'output_video.mp4';
   downloadLink.textContent = 'Download Video';
-  console.log("downloadLink"+downloadLink)
+  console.log("downloadLink" + downloadLink)
   // Append the download link to the body
   document.body.appendChild(downloadLink);
 }
